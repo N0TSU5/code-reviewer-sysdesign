@@ -22,7 +22,7 @@
 html,body{height:100%}
 body{font-family:var(--sans);color:var(--ink);background:var(--bg);overflow:hidden;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
 .bg{position:fixed;inset:0;z-index:-1;background:
-  radial-gradient(1200px 700px at 70% -10%,rgba(124,108,240,.10),transparent 60%),
+  radial-gradient(1200px 700px at 70% -10%,rgba(64, 22, 88, 0.1),transparent 60%),
   radial-gradient(900px 600px at 0% 110%,rgba(124,108,240,.06),transparent 60%),var(--bg)}
 
 /* solid obsidian panel (class kept as .glass for markup) */
@@ -231,7 +231,7 @@ const IC = {
 const N = {
   controller:{x:280,y:550,w:180,h:100,kind:'infra',icon:'k8s',lg:'Infrastructure',t:'VPC Endpoint',s:'& K8s Controller'},
   verify:{x:760,y:170,w:200,h:100,kind:'step',lg:'LangGraph Node 1',p:'Conditional Edge',t:'Verify & Dedup',s:'Check SHA-256 & metadata, skip if already handled'},
-  static:{x:1200,y:170,w:200,h:100,kind:'step',lg:'LangGraph Node 2',p:'Node',t:'Static Analysis',s:'NASA Power of 10, docstring & lint checks'},
+  static:{x:1200,y:170,w:200,h:100,kind:'step',lg:'LangGraph Node 2',p:'Node',t:'Static Analysis',s:'NASA, robot safety, docstring & lint checks'},
   filter:{x:1640,y:170,w:200,h:100,kind:'step',lg:'LangGraph Node 3',p:'Node',t:'Filter Dupes',s:'Diff against parent hash, keep new defects'},
   llm:{x:1200,y:490,w:200,h:100,kind:'step',lg:'LangGraph Node 4',p:'Send() Fan-Out',t:'LLM Enrichment',s:'Explain each new defect & suggest a fix'},
   gateway:{x:1640,y:490,w:200,h:100,kind:'step service',icon:'brain',lg:'External Service',t:'Private LLM Gateway',s:'Constrained detokenizer'},
@@ -255,7 +255,7 @@ const E = [
   {from:'verify',to:'static',d:'M960,220 H1198',c:[1080,220],name:'VerifiedPackage',
     sch:[{r:[['packageSha256','hex'],['parentSha256','hex'],['workspacePath','string'],['metadata','object']]}]},
   {from:'static',to:'filter',d:'M1400,220 H1638',c:[1520,220],name:'RawFinding[]',
-    sch:[{r:[['ruleId','string'],['category','nasa|doc|lint'],['file','string'],['line','int'],['symbol','string'],['fingerprint','hex']]}]},
+    sch:[{r:[['ruleId','string'],['category','nasa|safety|doc|lint'],['file','string'],['line','int'],['symbol','string'],['fingerprint','hex']]}]},
   {from:'filter',to:'llm',d:'M1740,270 V380 H1300 V488',c:[1520,380],name:'NewFinding[]',
     sch:[{r:[['findingId','uuid'],['ruleId','string'],['symbol','string'],['snippet','string'],['context','string']]}]},
   {from:'llm',to:'gateway',d:'M1400,540 H1638',c:[1530,540],bi:true,name:'EnrichCall',tag:'⇄',
@@ -293,6 +293,7 @@ const D = {
     sec:[{h:'Steps',ul:['Fetch the CodePackage from Partner Object Storage at the given URI.','Recompute its SHA-256 and compare it to packageSha256. A mismatch aborts the run.','Validate the metadata: required fields, parent hash format and policy version.','Look up the hash in the findings ledger. If this package was already reviewed, a conditional edge routes straight to End.']}]},
   static:{kind:'LangGraph Node 2',t:'Static Analysis',lead:'Deterministic checks with no model involved. It runs over the verified package and writes raw findings to the Postgres ledger.',
     sec:[{h:'NASA / JPL Power of 10',ol:['Simple control flow: no goto or recursion','Every loop has a fixed upper bound','No dynamic allocation after init','Functions fit on one page (~60 lines)','At least 2 assertions per function','Data declared at the smallest scope','Check return values and validate parameters','Limited preprocessor use','Restricted pointer use','All warnings enabled, zero warnings']},
+         {h:'Robot Safety Checks',ol:['Motion commands clamped to velocity, acceleration, joint and workspace limits before publishing','Every actuator path handles the emergency stop','Command watchdog: actuators stop when commands go stale (deadman timeout)','No blocking calls or unbounded waits inside control loops','Sensor inputs checked for NaN/Inf, range and stale timestamps before use','Error and exception paths drive to a safe state, never hold the last command','Consistent units and coordinate frames (rad vs deg, frame IDs on transforms)','State shared between control threads is protected from data races']},
          {h:'Also Checked',ul:['Comment checker: every public method has a docstring.','Lint bugs from the standard linter rule set.']}]},
   filter:{kind:'LangGraph Node 3',t:'Filter Dupes',lead:'Diffs the findings against the parent codebase\'s review so the same defect is never reported twice.',
     sec:[{h:'How It Works',ul:['Load the parent\'s findings from the ledger using parentSha256.','Fingerprint each finding (rule + symbol + normalised snippet), so a defect that only moved lines is not counted as new.','Only new defects go on to LLM Enrichment. Carried-over defects are linked to the earlier report, not reported again.','If no parent review exists, every finding counts as new.']}]},
@@ -323,7 +324,7 @@ const S = [
   {k:'Overview',t:'The Full System',p:'A review request enters the partner VPC. An ephemeral LangGraph pod verifies, analyses, de-duplicates and enriches the findings, waits for human approval, then hands off to the testing and monitoring phases. Every connection carries a typed payload.',f:null},
   {k:'Ingress',t:'Trigger & Spawn',p:'The client sends a ReviewRequest to the VPC endpoint. The K8s controller turns it into a JobSpec and spawns an ephemeral pod to run the reviewer.',f:['client','controller','pod']},
   {k:'LangGraph Node 1',t:'Verify & Dedup',p:'The code package comes from object storage. Its SHA-256 is recomputed, the metadata is validated and the ledger is checked; a package that was already reviewed exits early through a conditional edge.',f:['verify','archive','static']},
-  {k:'LangGraph Node 2',t:'Static Analysis',p:'The verified package is checked against the NASA Power of 10 rules, the docstring checker for public methods and lint. Raw findings are written to the Postgres ledger.',f:['static','verify','postgres','filter']},
+  {k:'LangGraph Node 2',t:'Static Analysis',p:'The verified package is checked against the NASA Power of 10 rules, robot safety checks (motion limits, e-stop, watchdogs, sensor validation, fail-safe paths), the docstring checker for public methods and lint. Raw findings are written to the Postgres ledger.',f:['static','verify','postgres','filter']},
   {k:'LangGraph Node 3',t:'Filter Dupes',p:'Findings are diffed against the parent codebase\'s review, so only new defects continue down the pipeline.',f:['filter','static','llm']},
   {k:'LangGraph Node 4',t:'LLM Enrichment',p:'One task per new defect sends its snippet to the private LLM. The constrained detokenizer guarantees a structured response, and each result is written to the ledger as it completes.',f:['llm','gateway','postgres','filter']},
   {k:'LangGraph Node 5',t:'Generate Handoff Specs',p:'Docstrings become coverage specs, NASA violations get time and memory stress tests, and monitoring hooks are defined for the DB, network, LLM API and each defective function.',f:['generate','llm','gate']},

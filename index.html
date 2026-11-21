@@ -47,7 +47,7 @@ header{display:flex;align-items:center;gap:16px;padding:12px 20px 8px;flex-wrap:
 #stage{flex:1;position:relative;min-height:0;margin:0 16px;overflow:hidden;border-radius:16px;touch-action:none;cursor:grab;
   background:#0b0b0f radial-gradient(circle,#1c1c24 1px,transparent 1.2px) 0 0/26px 26px;border:1px solid var(--line)}
 #stage.panning{cursor:grabbing}
-#canvas{position:absolute;left:0;top:0;width:2900px;height:1460px;transform-origin:0 0}
+#canvas{position:absolute;left:0;top:0;width:2900px;height:1540px;transform-origin:0 0}
 #canvas.anim{transition:transform .8s cubic-bezier(.22,.8,.2,1)}
 #zones,#layer{position:absolute;inset:0}
 #zones{z-index:0}
@@ -84,6 +84,15 @@ header{display:flex;align-items:center;gap:16px;padding:12px 20px 8px;flex-wrap:
 .node.service .lg,.node.store .lg,.node.ext .lg,.node.infra .lg{color:var(--ink-3)}
 .node.dim{opacity:.22;filter:grayscale(.6)}
 .node.focus{border-color:rgba(167,139,250,.7);box-shadow:0 0 0 1px rgba(167,139,250,.4),0 0 32px -6px rgba(124,108,240,.45)}
+
+/* assumption labels */
+.assume{position:absolute;pointer-events:auto;cursor:pointer;border:1px dashed #6b5428;background:#19140d;border-radius:9px;padding:6px 10px;font:500 11.5px/1.35 var(--sans);color:#d9c39a;transition:opacity .45s,border-color .2s}
+.assume:hover{border-color:var(--amber)}
+.assume b{display:block;font:700 9.5px var(--mono);letter-spacing:.1em;color:var(--amber);margin-bottom:2px}
+.assume.dim{opacity:.18}
+#canvas.far .assume span{display:none}
+#canvas.far .assume b{font-size:15px;margin:0}
+.wb .assume-box{border:1px dashed #6b5428;background:rgba(227,168,87,.07);border-radius:8px;padding:9px 12px;font-size:13.5px;line-height:1.5;color:#d9c39a}
 
 /* payload cards */
 .card{position:absolute;transform:translate(-50%,-50%);width:204px;border-radius:10px;padding:8px 11px 9px;pointer-events:auto;cursor:pointer;
@@ -198,7 +207,7 @@ pre{font:500 12px/1.6 var(--mono);background:#0a0a0e;border-radius:8px;padding:1
 <main id="stage">
   <div id="canvas">
     <div id="zones"></div>
-    <svg id="wires" viewBox="0 0 2900 1460"></svg>
+    <svg id="wires" viewBox="0 0 2900 1540"></svg>
     <div id="layer"></div>
   </div>
   <div class="zoom pill glass">
@@ -223,7 +232,7 @@ pre{font:500 12px/1.6 var(--mono);background:#0a0a0e;border-radius:8px;padding:1
 </div>
 
 <script>
-const CW=2900, CH=1460;
+const CW=2900, CH=1540;
 
 /* ================= ICONS ================= */
 const IC = {
@@ -240,17 +249,17 @@ const IC = {
 const N = {
   engine:{x:30,y:190,w:200,h:110,kind:'ext',icon:'flow',lg:'Platform',t:'Workflow Engine',s:'Runs phases, records every hand-over'},
   controller:{x:300,y:600,w:200,h:110,kind:'infra',icon:'k8s',lg:'Infrastructure',t:'VPC Endpoint',s:'& K8s Controller'},
-  verify:{x:780,y:220,w:240,h:110,kind:'step',lg:'Node 1',p:'Conditional Edge',t:'Verify & Dedup',s:'Hash, schema version & metadata; fail fast or skip'},
+  verify:{x:780,y:220,w:240,h:110,kind:'step',lg:'Node 1',p:'Conditional Edge',t:'Verify & Dedup',s:'Hash, schema version & metadata; fail fast or skip',a:'Code generation sends schemaVersion, codegenRunId and parentSha256 with each package'},
   static:{x:1280,y:220,w:240,h:110,kind:'step',lg:'Node 2',p:'Node',t:'Static Analysis',s:'Existing deterministic tool, pinned version'},
-  filter:{x:1780,y:220,w:240,h:110,kind:'step',lg:'Node 3',p:'Node',t:'Diff vs Parent',s:'Tag new · carried-over · resolved'},
-  validate:{x:780,y:600,w:240,h:110,kind:'step',lg:'Node 5',p:'Conditional Edge',t:'Validate Answer',s:'Check, retry ≤ 3, else mark unexplained'},
+  filter:{x:1780,y:220,w:240,h:110,kind:'step',lg:'Node 3',p:'Node',t:'Diff vs Parent',s:'Drop ignored, tag new · carried-over'},
+  validate:{x:780,y:600,w:240,h:110,kind:'step',lg:'Node 5',p:'Conditional Edge',t:'Validate Answer',s:'Check, retry ≤ 3, else mark unexplained',a:'The analysis tool can re-check a patched snippet'},
   llm:{x:1280,y:600,w:240,h:110,kind:'step',lg:'Node 4',p:'Send() Fan-Out',t:'LLM Enrichment',s:'Explain each new finding & suggest a fix'},
-  gateway:{x:2180,y:600,w:240,h:110,kind:'step service',icon:'brain',lg:'External Service',t:'LLM Gateway',s:'Central platform gateway · local models'},
-  generate:{x:780,y:980,w:240,h:110,kind:'step',lg:'Node 6',p:'Node',t:'Generate Handoff Specs',s:'Test specs + monitoring hooks, keyed by findingId'},
-  gate:{x:1280,y:980,w:240,h:110,kind:'step gate',lg:'Node 7',p:'interrupt()',t:'Human Approval',s:'State persisted, pod despawns & waits'},
-  emit:{x:1780,y:980,w:240,h:110,kind:'step',lg:'Node 8',p:'Node → End',t:'Emit Handoff',s:'Atomic outbox publisher'},
-  archive:{x:780,y:1300,w:300,h:110,kind:'store',icon:'bucket',lg:'Storage',t:'Partner Object Storage',s:'Code archive · packages & artifacts'},
-  postgres:{x:1300,y:1300,w:300,h:110,kind:'store',icon:'db',lg:'Storage',t:'Persistent Postgres DB',s:'Checkpointer · findings ledger · transaction log'},
+  gateway:{x:2180,y:600,w:240,h:110,kind:'step service',icon:'brain',lg:'External Service',t:'LLM Gateway',s:'Central platform gateway · local models',a:'The gateway serves pinned model versions inside the approved environment'},
+  generate:{x:780,y:980,w:240,h:110,kind:'step',lg:'Node 6',p:'Node',t:'Recommend Tests & Monitoring',s:'Tests + latency, memory, throughput, security'},
+  gate:{x:1280,y:980,w:240,h:110,kind:'step gate',lg:'Node 7',p:'interrupt()',t:'Human Approval',s:'State persisted, pod despawns & waits',a:'An approval UI writes decisions back and triggers the resume'},
+  emit:{x:1780,y:980,w:240,h:110,kind:'step',lg:'Node 8',p:'Node → End',t:'Emit Handoff',s:'Sends once, keyed by reviewRunId',a:'The workflow engine records hand-offs and drops a repeated reviewRunId'},
+  archive:{x:780,y:1380,w:300,h:110,kind:'store',icon:'bucket',lg:'Storage',t:'Partner Object Storage',s:'Code archive · packages & artifacts'},
+  postgres:{x:1300,y:1380,w:300,h:110,kind:'store',icon:'db',lg:'Storage',t:'Persistent Postgres DB',s:'2 tables: reviews (resume) · findings (ledger)'},
   testing:{x:2620,y:600,w:220,h:110,kind:'ext',icon:'test',lg:'Downstream',t:'Testing Phase',s:'Generates targeted test suites'},
   monitoring:{x:2620,y:980,w:220,h:110,kind:'ext',icon:'pulse',lg:'Downstream',t:'Monitoring Phase',s:'Runtime watchdog & telemetry'}
 };
@@ -263,14 +272,14 @@ const E = [
     sch:[{r:[['threadId','reviewRunId (uuid)'],['requestId','uuid'],['packageSha256','hex'],['request','ReviewRequest'],['restartPolicy','OnFailure']]}]},
   {from:'verify',to:'engine',d:'M778,250 H232',c:[500,250],name:'ReviewFailed',tag:'error',
     sch:[{r:[['requestId','uuid'],['stage','"verify"'],['reason','HASH|SCHEMA|FIELD'],['detail','string'],['schemaVersionSeen','semver'],['retryable','false']]}]},
-  {from:'archive',to:'verify',d:'M780,1355 H750 V300 H778',c:[750,1200],name:'CodePackage',
+  {from:'archive',to:'verify',d:'M780,1435 H750 V300 H778',c:[750,1250],name:'CodePackage',
     sch:[{r:[['uri','string'],['archive','tar.gz bytes'],['contentLength','int'],['storageEtag','string']]}]},
   {from:'verify',to:'static',d:'M1020,275 H1278',c:[1150,275],name:'VerifiedPackage',
     sch:[{r:[['reviewRunId','uuid'],['packageSha256','hex'],['parentSha256','hex | null'],['schemaVersion','semver'],['codegenRunId','string'],['workspacePath','string']]}]},
   {from:'static',to:'filter',d:'M1520,275 H1778',c:[1650,275],name:'RawFinding[]',
     sch:[{r:[['findingId','derived hash'],['ruleId','string'],['severity','from rule'],['file:line','string:int'],['symbol','string'],['fingerprint','hex'],['toolVersion','semver']]}]},
   {from:'filter',to:'llm',d:'M1900,330 V470 H1440 V598',c:[1670,470],name:'DiffedFinding[]',
-    sch:[{r:[['findingId','derived hash'],['change','new|carried|resolved'],['priorFindingId','hash | null'],['snippet','string'],['context','string']]}]},
+    sch:[{r:[['findingId','derived hash'],['change','new | carried'],['priorFindingId','hash | null'],['snippet','string'],['context','string']]}]},
   {from:'llm',to:'gateway',d:'M1520,655 H2178',c:[1850,655],bi:true,name:'EnrichCall',tag:'⇄',
     sch:[{h:'→ REQUEST',r:[['findingId','derived hash'],['ruleId','string'],['snippet','string'],['priorError','string | null']]},
          {h:'← RESPONSE',r:[['explanation','string'],['suggestedFix','{diff, rationale}'],['modelId','string'],['gatewayRequestId','string']]}]},
@@ -278,85 +287,79 @@ const E = [
     sch:[{r:[['findingId','derived hash'],['attempt','int'],['explanation','string'],['suggestedFix','object'],['modelId','string'],['promptVersion','semver']]}]},
   {from:'validate',to:'llm',d:'M900,598 V500 H1340 V598',c:[1120,500],name:'ValidationError',tag:'retry',
     sch:[{r:[['findingId','derived hash'],['attempt','n of 3'],['error','specific message']]}]},
-  {from:'validate',to:'generate',d:'M900,712 V978',c:[900,845],name:'CheckedFinding[]',
-    sch:[{r:[['findingId','derived hash'],['status','enriched|unexplained'],['change','new|carried|resolved'],['explanation','string | null'],['suggestedFix','object | null'],['fixVerified','bool'],['llmError','string | null']]}]},
-  {from:'generate',to:'gate',d:'M1020,1035 H1278',c:[1150,1035],name:'HandoffSpecs',
-    sch:[{r:[['findingId','on every spec/hook'],['testSpecs','TestSpec[]'],['stressTests','StressTest[]'],['monitorHooks','Hook[]'],['defectWatches','Watch[]']]}]},
+  {from:'validate',to:'generate',d:'M900,712 V978',c:[900,875],name:'CheckedFinding[]',
+    sch:[{r:[['findingId','derived hash'],['status','enriched|unexplained'],['change','new | carried'],['explanation','string | null'],['suggestedFix','object | null'],['fixVerified','bool'],['llmError','string | null']]}]},
+  {from:'generate',to:'gate',d:'M1020,1035 H1278',c:[1150,1035],name:'Recommendations',
+    sch:[{r:[['recommendedTests','TestRec[]'],['latency','Watch[]'],['memoryUsage','Watch[]'],['throughput','Watch[]'],['security','Watch[]']]}]},
   {from:'gate',to:'emit',d:'M1520,1035 H1778',c:[1650,1035],name:'ApprovalDecision',
     sch:[{r:[['scope','finding|review'],['findingId','derived hash'],['decision','approve|edit|reject'],['findingVersion','int'],['reason','string'],['reviewer','string'],['decidedAt','timestamp']]}]},
   {from:'emit',to:'testing',d:'M1960,978 V860 H2530 V655 H2618',c:[2530,790],name:'TestHandoff',tag:'via engine',
-    sch:[{r:[['reviewRunId','uuid'],['packageSha256','hex'],['supersedes','handoffId | null'],['findings','FindingRef[]'],['testSpecs','TestSpec[]'],['provenance','Provenance'],['idempotencyKey','run:ver']]}]},
+    sch:[{r:[['reviewRunId','uuid'],['recommendedTests','TestRec[]']]},
+         {h:'TestRec',r:[['findingId','derived hash'],['target','file · function'],['test','what to test']]}]},
   {from:'emit',to:'monitoring',d:'M2020,1035 H2618',c:[2300,1035],name:'MonitorHandoff',tag:'via engine',
-    sch:[{r:[['reviewRunId','uuid'],['packageSha256','hex'],['supersedes','handoffId | null'],['watches','Watch[]'],['hooks','Hook[]'],['retire','findingId[]'],['idempotencyKey','run:ver']]}]},
-  {from:'postgres',to:'pod',d:'M1340,1298 V1152',c:[1340,1225],bi:true,name:'LedgerRow',tag:'append-only',
-    sch:[{r:[['findingId','derived hash'],['version','int (append)'],['status','lifecycle enum'],['toolVersion','semver'],['modelId','string | null'],['reviewer','string | null']]}]},
-  {from:'postgres',to:'pod',d:'M1560,1298 V1152',c:[1560,1225],bi:true,dashed:true,name:'Checkpoint',tag:'every step',
-    sch:[{r:[['threadId','reviewRunId'],['checkpointId','uuid'],['node','string'],['state','jsonb (+attempts)'],['createdAt','timestamp']]}]}
+    sch:[{r:[['reviewRunId','uuid'],['latency','Watch[]'],['memoryUsage','Watch[]'],['throughput','Watch[]'],['security','Watch[]']]},
+         {h:'Watch',r:[['findingId','derived hash'],['target','file · function'],['signal','what to watch']]}]},
+  {from:'postgres',to:'pod',d:'M1340,1378 V1154',c:[1340,1275],bi:true,name:'FindingRow',tag:'ledger',
+    sch:[{r:[['findingId','derived hash'],['reviewRunId','uuid'],['version','int (append)'],['status','lifecycle enum'],['toolVersion','semver'],['reviewer','string | null']]}]},
+  {from:'postgres',to:'pod',d:'M1560,1378 V1154',c:[1560,1275],bi:true,dashed:true,name:'ReviewCheckpoint',tag:'resume',
+    sch:[{r:[['reviewRunId','thread id'],['checkpointId','uuid'],['node','string'],['state','jsonb (+attempts)'],['createdAt','timestamp']]}]}
 ];
 const NAME={pod:'LangGraph Pod'};Object.entries(N).forEach(([k,v])=>NAME[k]=v.t);
 
 /* ================= NODE DETAILS ================= */
 const D = {
-  vpc:{kind:'Boundary',t:'Partner VPC (Isolated Environment)',lead:'Everything in the review pipeline runs inside the client\'s own VPC. Source code, the object store and the Postgres state store never leave the partner\'s network, and model calls go only to the platform\'s locally hosted models.',
-    sec:[{h:'Guarantees',ul:['No public ingress: requests arrive through a private VPC endpoint.','All model calls go through the central platform gateway to locally hosted models, so no code is sent to a third-party API.','Persistent state (the Postgres ledger and checkpoints) lives in the client\'s storage.']}]},
-  pod:{kind:'Runtime',t:'Ephemeral LangGraph K8s Pod',lead:'A short-lived Kubernetes pod that runs one LangGraph StateGraph per review run. The pod holds no state of its own. Every node commits its state to Postgres, so the pod can be killed and replaced at any point.',
-    sec:[{h:'Graph Order',pre:'1  Verify & Dedup        ── bad input  → ReviewFailed → End\n                         ── already done → End\n2  Static Analysis\n3  Diff vs Parent\n4  LLM Enrichment        ⇄ LLM Gateway   (Send per new finding)\n5  Validate Answer       ── invalid & attempts < 3 → 4\n                         ── else enriched | unexplained\n6  Generate Handoff Specs\n7  Human Approval Gate   (interrupt)\n8  Emit Handoff          → End'},
+  vpc:{kind:'Boundary',t:'Partner VPC (Isolated Environment)',lead:'Everything in the review pipeline runs inside the client\'s own VPC. Source code, the object store and the Postgres database never leave the partner\'s network, and model calls go only to the platform\'s locally hosted models.',
+    sec:[{h:'Guarantees',ul:['No public ingress: requests arrive through a private VPC endpoint.','All model calls go through the central platform gateway to locally hosted models, so no code is sent to a third-party API.','Both Postgres tables (reviews and findings) live in the client\'s storage.']}]},
+  pod:{kind:'Runtime',t:'Ephemeral LangGraph K8s Pod',lead:'A short-lived Kubernetes pod that runs one LangGraph StateGraph per review run. The pod holds no state of its own. LangGraph checkpoints the run into the reviews table after every node, so the pod can be killed and replaced at any point.',
+    sec:[{h:'Graph Order',pre:'1  Verify & Dedup        ── bad input  → ReviewFailed → End\n                         ── already done → End\n2  Static Analysis\n3  Diff vs Parent        (drops previously ignored findings)\n4  LLM Enrichment        ⇄ LLM Gateway   (Send per new finding)\n5  Validate Answer       ── invalid & attempts < 3 → 4\n                         ── else enriched | unexplained\n6  Recommend Tests & Monitoring\n7  Human Approval Gate   (interrupt)\n8  Emit Handoff          → End'},
          {h:'Lifecycle',ul:['Spawned by the K8s controller for each review run; the thread id is a fresh reviewRunId, so the same package can be re-reviewed (new tool or prompt version, after a reject).','Checkpointed after every node; completed Send() tasks are kept as pending writes, so only unfinished findings re-run.','Exits while it waits for human approval and is re-spawned to resume.']}]},
-  engine:{kind:'Platform',t:'Workflow Engine',lead:'The platform engine runs the phases in order, passes each phase\'s output to the next and keeps a record of what was passed. The review phase receives from it and reports back to it, so the engine\'s record is part of the trace.',
-    sec:[{h:'Talks To The Review Phase',ul:['Sends a ReviewRequest built from code generation\'s output.','Receives ReviewFailed when the input is rejected on arrival (hash mismatch, unknown schema version, missing field).','Receives AlreadyReviewed, with a pointer to the existing hand-off, when the same package arrives again.','Records each TestHandoff / MonitorHandoff under an engineHandoffId and delivers it to testing and monitoring.']}]},
+  engine:{kind:'Platform',t:'Workflow Engine',lead:'The platform engine runs the phases in order, passes each phase\'s output to the next and keeps a record of what was passed. The review phase receives from it and reports back to it.',
+    sec:[{h:'Talks To The Review Phase',ul:['Sends a ReviewRequest built from code generation\'s output.','Receives ReviewFailed when the input is rejected on arrival (hash mismatch, unknown schema version, missing field).','Receives AlreadyReviewed when the same package arrives again.','Receives the recommendations, keyed by reviewRunId, drops a key it has already seen and delivers them to testing and monitoring.']}]},
   controller:{kind:'Infrastructure',t:'VPC Endpoint & K8s Controller',lead:'The entry point inside the partner VPC. It receives a review request from the workflow engine and turns it into an ephemeral Kubernetes Job/Pod that runs the reviewer.',
     sec:[{h:'Responsibilities',ul:['Accept the ReviewRequest on the private VPC endpoint.','Mint a reviewRunId and spawn an ephemeral K8s Job/Pod with it as the LangGraph thread id.','Re-spawn the pod with the same thread id when an approval decision arrives.','Recovery: if the pod crashes (OOMKilled, node reboot), Kubernetes restarts it, and the new pod resumes from the last committed checkpoint.']}]},
   verify:{kind:'LangGraph Node 1 · Conditional Edge',t:'Verify & Dedup',lead:'Checks that the input is exactly what code generation produced and in a format we understand. Bad input fails fast with a typed ReviewFailed back to the workflow engine; it is never guessed at.',
     sec:[{h:'Checks On Arrival',ul:['schemaVersion is one we support (current or N−1 through an adapter). Otherwise: UNSUPPORTED_SCHEMA.','All required metadata fields are present and well-formed. Otherwise: MISSING_FIELD.','Fetch the CodePackage, recompute its SHA-256 and compare it to packageSha256. Otherwise: HASH_MISMATCH.','A completed review already exists for (packageSha256, toolVersion, promptVersion): route to End and return AlreadyReviewed with the existing hand-off.']},
-         {h:'Branches',ul:['Error branch → ReviewFailed → End. These errors are permanent (the same bytes fail the same way), so retryable = false.','Duplicate branch → End.','Otherwise → Static Analysis with a VerifiedPackage.']}]},
+         {h:'Branches',ul:['Error branch → ReviewFailed → End. These errors are permanent (the same bytes fail the same way), so retryable = false.','Duplicate branch → End.','Otherwise → Static Analysis with a VerifiedPackage.']},
+         {h:'Output Format: What It Means',ul:['Code generation hands us two things: the code package (an archive) and a small description of it (the metadata: hash, run id, parent, language and so on).','The format is the agreed shape of both: which fields exist, what they are called, what type each one is, and how the archive is packed.','A format change is when code generation changes that shape, for example to add a field or rename one.']},{h:'Format Change Examples',kv:[['Non-breaking','A new optional field is added (e.g. a build target). We can ignore it, so it is a minor version bump.'],['Breaking','A field is renamed or removed (packageSha256 becomes sha256), a type changes (one package becomes a list of modules), the archive changes from tar.gz to zip, or the hash algorithm changes. We would misread the input, so it is a major version bump.']]},{h:'How We Handle A Format Change',ul:['Every request carries schemaVersion. Verify & Dedup validates it against the registered schema.','The current version and N−1 are supported (N−1 through an adapter), so code generation can roll out without a lockstep release.','An unknown version is rejected with ReviewFailed: UNSUPPORTED_SCHEMA. We never guess at a new format.','Contract tests against our schema run in code generation\'s CI, so a breaking change is caught there.','Testing and monitoring see nothing: no hand-off is produced, and the engine shows the failed review.']}]},
   static:{kind:'LangGraph Node 2',t:'Static Analysis',lead:'Runs the existing analysis tool at a pinned version. It is deterministic, so its results are cached by (packageSha256, toolVersion, rulesetVersion) and every finding gets an ID derived from its content.',
-    sec:[{h:'Deterministic Finding IDs',ul:['findingId = hash(packageSha256, toolVersion, ruleId, fingerprint).','A re-run after a restart produces the same IDs, so ledger rows and downstream links stay aligned.','Severity comes from the tool\'s rule, not the model, so it never changes between runs.']},
+    sec:[{h:'Deterministic Finding IDs',ul:['findingId = hash(packageSha256, toolVersion, ruleId, fingerprint).','A re-run after a restart produces the same IDs, so findings-table rows and downstream links stay aligned.','Severity comes from the tool\'s rule, not the model, so it never changes between runs.']},
          {h:'NASA / JPL Power of 10',ol:['Simple control flow: no goto or recursion','Every loop has a fixed upper bound','No dynamic allocation after init','Functions fit on one page (~60 lines)','At least 2 assertions per function','Data declared at the smallest scope','Check return values and validate parameters','Limited preprocessor use','Restricted pointer use','All warnings enabled, zero warnings']},
          {h:'Robot Safety Checks',ol:['Motion commands clamped to velocity, acceleration, joint and workspace limits before publishing','Every actuator path handles the emergency stop','Command watchdog: actuators stop when commands go stale (deadman timeout)','No blocking calls or unbounded waits inside control loops','Sensor inputs checked for NaN/Inf, range and stale timestamps before use','Error and exception paths drive to a safe state, never hold the last command','Consistent units and coordinate frames (rad vs deg, frame IDs on transforms)','State shared between control threads is protected from data races']},
          {h:'Also Checked',ul:['Comment checker: every public method has a docstring.','Lint bugs from the standard linter rule set.']}]},
-  filter:{kind:'LangGraph Node 3',t:'Diff vs Parent',lead:'Compares the findings with the parent package\'s approved review and tags every finding, so downstream phases get the full picture for this package, not just the new defects.',
-    sec:[{h:'Change Status',kv:[['new','Not in the parent. Sent to LLM Enrichment.'],['carried_over','Same fingerprint as a parent finding. Reuses the earlier explanation and approval history, linked by priorFindingId.'],['resolved','In the parent, gone now. Passed on so monitoring can retire its watch.']]},
-         {h:'How It Works',ul:['Fingerprint = rule + symbol + normalised snippet, so a defect that only moved lines is not counted as new.','Fingerprints the engineer rejected as false positives on the parent stay suppressed.','No parent review: every finding is new.']}]},
-  llm:{kind:'LangGraph Node 4 · Send() Fan-Out',t:'LLM Enrichment',lead:'Fans out one task per new finding. Each task sends its snippet to the central LLM gateway and gets back a plain-language explanation and a suggested fix. Carried-over and resolved findings skip this step.',
-    sec:[{h:'Per Finding',ul:['Only the offending snippet and minimal surrounding context are sent.','On a retry the request carries priorError, the validator\'s specific message, so the model can correct itself.','Each Send() target is a small subgraph (enrich → validate → retry), so one bad finding never blocks the others.','Each result is appended to the ledger as soon as it finishes, so after a crash only the unfinished findings are re-sent.']}]},
+  filter:{kind:'LangGraph Node 3',t:'Diff vs Parent',lead:'Compares the findings with the parent package\'s review. Findings an engineer already reviewed and ignored are removed, so nobody is asked about them again.',
+    sec:[{h:'What Happens To Each Finding',kv:[['ignored before','Same fingerprint as a finding an engineer rejected on the parent. Removed here; it goes no further.'],['carried_over','Same fingerprint as an approved parent finding. Reuses the earlier explanation, linked by priorFindingId. Skips the LLM.'],['new','Not in the parent. Sent to LLM Enrichment.']]},
+         {h:'How It Works',ul:['Fingerprint = rule + symbol + normalised snippet, so a defect that only moved lines still matches.','The parent\'s decisions are read from the findings table (the ledger).','No parent review: every finding is new.']}]},
+  llm:{kind:'LangGraph Node 4 · Send() Fan-Out',t:'LLM Enrichment',lead:'Fans out one task per new finding. Each task sends its snippet to the central LLM gateway and gets back a plain-language explanation and a suggested fix. Carried-over findings skip this step.',
+    sec:[{h:'Per Finding',ul:['Only the offending snippet and minimal surrounding context are sent.','On a retry the request carries priorError, the validator\'s specific message, so the model can correct itself.','Each Send() target is a small subgraph (enrich → validate → retry), so one bad finding never blocks the others.','Resuming after a crash uses the checkpoint only: completed tasks are kept as pending writes, so only unfinished findings are re-sent.','Each result is also recorded in the findings table, for the record, never for resuming.']}]},
   validate:{kind:'LangGraph Node 5 · Conditional Edge',t:'Validate Answer',lead:'Decides whether the model\'s answer is usable. If not, it returns a specific error to the LLM node and retries, up to three times. After that the finding continues without an explanation. A finding is never dropped because the model failed.',
     sec:[{h:'Checks (Cheapest First)',ol:['Parses against the response schema','Line references exist in the snippet','The suggested diff applies cleanly','Re-run the analysis tool on the patched snippet: the finding must be gone (fixVerified)']},
          {h:'Branches',ul:['Valid → status enriched.','Invalid and attempts < 3 → ValidationError back to LLM Enrichment. The attempt count lives in graph state, so a restart does not reset it.','Invalid after 3 attempts → status unexplained, with llmError set. The engineer sees it flagged at approval and can write the explanation.','Gateway timeout or outage → retry with backoff, not re-prompting. If the outage persists the run pauses on a checkpoint and resumes later.']}]},
   gateway:{kind:'External Service · Not A Graph Node',t:'LLM Gateway',lead:'The platform\'s central gateway to locally hosted models. Every model call in the platform goes through it.',
     sec:[{h:'Notes',ul:['We do not assume it guarantees valid output. Constrained decoding helps if it is offered, and Validate Answer checks every response either way.','Calls have a bounded timeout. modelId and gatewayRequestId are recorded for every answer.','Requests are monitored for rate limiting, latency and throughput.']}]},
-  generate:{kind:'LangGraph Node 6',t:'Generate Handoff Specs',lead:'Turns the findings into work for the downstream testing and monitoring phases. Every spec, hook and watch carries the findingId it came from.',
-    sec:[{h:'Test Case Specs',ul:['For each public method, analyse the docstring and list the cases that need to be covered.','For methods with NASA violations, add stress tests for time and memory.']},
-         {h:'Runtime Monitoring Hooks',ul:['Instrument all database, network and LLM API requests.','Watch security, rate limiting, memory usage, throughput and latency of those components.','For each defect found, monitor the performance of that function.','Resolved findings are listed so their watches can be retired.']}]},
+  generate:{kind:'LangGraph Node 6',t:'Recommend Tests & Monitoring',lead:'Turns the approved-to-be findings into two simple lists: recommended tests, and things to monitor. Each item names the finding it came from.',
+    sec:[{h:'Recommended Tests',ul:['For each finding: the file and function to target, and what the test should check.']},
+         {h:'Recommended Monitoring',kv:[['latency','Functions whose findings could slow them down (e.g. blocking calls in a control loop)'],['memoryUsage','Functions with allocation or unbounded-growth findings'],['throughput','Paths where a finding could limit message or command rates'],['security','Inputs and interfaces with validation or safety findings']]}]},
   gate:{kind:'LangGraph Node 7 · interrupt()',t:'Human Approval Gate',lead:'The pipeline pauses here until an engineer has decided on every finding. No compute is held while it waits, which may be days.',
-    sec:[{h:'Mechanics',ul:['LangGraph interrupt() writes the full graph state to the Postgres checkpointer.','The pod despawns; the run waits in Postgres, not in memory.','On a decision, a new pod is spawned with the same thread id and resumes from this node.']},
-         {h:'Decisions',kv:[['approve','Status approved. The finding is handed on.'],['edit','A new finding version is appended (status edited) with reviewer, time and reason. The original LLM output is kept.'],['reject finding','Status rejected (a false positive). Not handed on; its fingerprint is suppressed for future regenerations.'],['reject review','The whole run fails. ReviewFailed goes back to the workflow engine.']]},
-         {h:'Ledger',ul:['Every status change is appended, never overwritten, so the history stays traceable.','Unexplained findings are flagged so the engineer can write the explanation.']}]},
-  emit:{kind:'LangGraph Node 8 · Node → End',t:'Emit Handoff',lead:'Publishes the approved hand-off through the workflow engine using the transactional outbox pattern, so nothing is ever handed on twice.',
-    sec:[{h:'Atomic Outbox',ul:['The hand-off payload and an outbox row are written in a single Postgres transaction.','A publisher relays outbox rows to the workflow engine with at-least-once delivery; the engine records each one under an engineHandoffId.','idempotencyKey = reviewRunId:approvalVersion. The engine drops a key it has already seen, so a retry never double-publishes, but a genuine re-review still goes through.']},
-         {h:'What Goes Downstream',ul:['Every approved or edited finding, with its change status (new, carried over, resolved).','supersedes points to the previous hand-off when this package regenerates an earlier one.','Provenance: tool, ruleset, model and prompt versions, and the codegen run.']}]},
-  testing:{kind:'Downstream',t:'Testing Phase',lead:'Consumes the test case specs and generates targeted test suites. Every spec names the finding it targets.',
-    sec:[{h:'Inputs',ul:['Coverage cases for each public method, derived from its docstring.','Time and memory stress tests for methods with NASA violations.']},
-         {h:'On A Regenerated Package',ul:['New findings: new tests.','Carried-over findings: existing tests are kept.','Resolved findings: tests can become regression tests.']}]},
-  monitoring:{kind:'Downstream',t:'Monitoring Phase',lead:'A runtime watchdog plus telemetry, configured from the monitoring hooks. Every watch names its finding.',
-    sec:[{h:'Watches',ul:['Database, network and LLM API requests.','Security, rate limiting, memory usage, throughput and latency.','Performance of every function that had a defect.']},
-         {h:'On A Regenerated Package',ul:['Adds watches for new findings, keeps carried-over ones and retires the watches listed in retire.']}]},
+    sec:[{h:'Mechanics',ul:['LangGraph interrupt() saves the run in the reviews table.','The pod despawns; the run waits in Postgres, not in memory.','On a decision, a new pod is spawned with the same thread id and resumes from this node.']},
+         {h:'Decisions',kv:[['approve','Status approved. The finding\'s recommendations are handed on.'],['edit','A new finding version is recorded (status edited) with reviewer, time and reason. The original LLM output is kept.'],['reject finding','Status rejected (ignored). Not handed on, and Diff vs Parent removes it from future versions of this package.'],['reject review','The whole run fails. ReviewFailed goes back to the workflow engine.']]},
+         {h:'Findings Table',ul:['Every decision is appended, never overwritten, so the history stays traceable.','Unexplained findings are flagged so the engineer can write the explanation.']}]},
+  emit:{kind:'LangGraph Node 8 · Node → End',t:'Emit Handoff',lead:'Sends the approved recommendations to the workflow engine, which delivers them to testing and monitoring. Nothing is ever handed on twice.',
+    sec:[{h:'No Double Hand-Off',ul:['The hand-off is keyed by reviewRunId.','If the pod dies after sending but before the checkpoint is saved, Emit runs again and re-sends; the engine sees a key it already has and drops it.']},
+         {h:'What Goes Downstream',ul:['To testing: recommended tests, one per finding.','To monitoring: what to watch for latency, memory usage, throughput and security.','Every item carries its findingId; everything else stays in the findings table.']}]},
+  testing:{kind:'Downstream',t:'Testing Phase',lead:'Receives the recommended tests and writes the test suites.',
+    sec:[{h:'Input',ul:['A list of recommended tests: the finding, the file and function to target, and what to test.','On a regenerated package it receives a fresh list for the new review run.']}]},
+  monitoring:{kind:'Downstream',t:'Monitoring Phase',lead:'Receives what to watch at run time, grouped into four areas.',
+    sec:[{h:'Input',kv:[['latency','Where to watch response times'],['memoryUsage','Where to watch memory growth'],['throughput','Where to watch message and command rates'],['security','Which inputs and interfaces to watch']]},
+         {h:'On A Regenerated Package',ul:['It receives a fresh set for the new review run, which replaces the old one.']}]},
   archive:{kind:'Storage',t:'Partner Object Storage',lead:'A partner-owned bucket that holds the secured code packages and generated artifacts.',
     sec:[{h:'Flow',ul:['The code package goes to Verify & Dedup first, to be hashed and validated.','Verify & Dedup passes the verified package on to Static Analysis.','Generated artifacts (reports, specs) are stored next to the source package.']}]},
-  postgres:{kind:'Storage',t:'Persistent Postgres DB',lead:'Lives in the client\'s storage and persists across runs. It is the single source of truth for both pipeline state and findings.',
-    sec:[{h:'Contents',kv:[['Checkpointer','LangGraph PostgresSaver; state is saved after every node, including retry counts'],['Findings Ledger','Append-only finding versions, keyed by derived findingId, used for dedup, the parent diff and traceability'],['Transaction Log','Audit trail plus the outbox table for Emit Handoff']]},
-         {h:'Finding Lifecycle',pre:'raw → enriched | unexplained → approved | edited | rejected\n        (on regeneration: carried_over | resolved)'},
-         {h:'Recovery',ul:['When a pod fails, Kubernetes spawns a new one that loads the latest checkpoint and continues from there.']}]},
-  trace:{kind:'Traceability',t:'Every Finding Back To Its Exact Input',lead:'Each handed-on finding answers four questions: which bytes, checked by which tool, explained by which model, approved by whom. All of it lives in the ledger, so a single query goes from a failing test or a runtime alert back to the exact package.',
-    sec:[{h:'The Chain',kv:[['Input','packageSha256, codegenRunId, requestId and the engine\'s engineHandoffId'],['Analysis','toolName, toolVersion, rulesetVersion, ruleId, fingerprint'],['Identity','findingId = hash(packageSha256, toolVersion, ruleId, fingerprint): the same on every re-run'],['LLM','modelId, promptVersion, gatewayRequestId, attempts, fixVerified'],['Approval','reviewer, decidedAt, findingVersion, reason'],['Downstream','every TestSpec, Hook and Watch carries its findingId'],['Lineage','priorFindingId and supersedes link a regenerated package to the earlier review']]}]},
-  upstream:{kind:'Change Upstream',t:'When Code Generation Changes',lead:'Two cases: code generation changes its output format, or it regenerates a package we have already reviewed and handed on.',
-    sec:[{h:'(a) The Output Format Changes',ul:['Every request carries schemaVersion. Verify & Dedup validates it against the registered schema.','The current version and N−1 are supported (N−1 through an adapter), so code generation can roll out without a lockstep release.','An unknown version is rejected with ReviewFailed: UNSUPPORTED_SCHEMA. We never guess at a new format.','Contract tests against our schema run in code generation\'s CI, so a breaking change is caught there.','Testing and monitoring see nothing: no hand-off is produced, and the engine shows the failed review.']},
-         {h:'(b) A Reviewed Package Is Regenerated',ul:['Same bytes (same hash): duplicate branch. The engine gets the existing hand-off; nothing is handed on twice.','New bytes with parentSha256: a new review run. Diff vs Parent tags each finding new, carried over or resolved, and only new findings go to the LLM.','The engineer approves the new set, with carried-over findings pre-filled from the earlier decision.','The hand-off carries supersedes: <previous handoffId>.','Testing sees new tests for new findings, keeps the existing ones and can turn resolved ones into regression tests.','Monitoring adds watches for new findings and retires the ones listed in retire.']}]},
-  testplan:{kind:'Testing The Chain',t:'Before A Partner Relies On It',lead:'Every claim in this design (restart safety, no double hand-off, findings never dropped, code never leaving) gets a test that proves it, run without partner code first.',
-    sec:[{h:'Tests',kv:[['Golden packages','Open-source robot code with seeded defects. The tool is deterministic, so expected findings and IDs are asserted exactly.'],['Fake gateway','Returns garbage, truncated answers, timeouts and outages. Asserts retries are capped, the unexplained path works and no finding is lost.'],['Chaos','Kill the pod at every node, during the fan-out and during the outbox relay. Asserts the same findingIds and exactly one hand-off per idempotency key.'],['Approval','Resume after a simulated multi-day wait; approve, edit, reject-finding and reject-review paths.'],['Contracts','Consumer-driven contract tests with code generation, testing and monitoring, for schema versions N, N−1 and unknown.'],['Residency','Network policy denies egress; canary strings planted in code must never appear in logs, traces or metrics.'],['Shadow mode','Run on the partner\'s real packages without handing on, and compare with their engineers\' own reviews before going live.']]}]},
-  assume:{kind:'Assumptions & Next Steps',t:'What I Assumed, And Where I\'d Go Next',lead:'The design depends on a few things I could not confirm from the brief.',
-    sec:[{h:'Assumptions',ul:['Code generation can send schemaVersion, codegenRunId and parentSha256 (or supersedes) with each package.','The workflow engine records hand-offs and can drop a repeated idempotency key.','The central gateway serves pinned model versions inside the approved environment.','The analysis tool can run on a snippet, so a suggested fix can be re-checked.','An approval UI exists, or can be built, that writes decisions back and triggers the resume.']},
-         {h:'Next',ul:['Measure the fix-verified rate per rule and per prompt version, and use it to tune prompts.','Feed engineer rejections back as suppression rules and as an evaluation set.','Share one finding schema with testing and monitoring, so the contract is owned jointly.']},
-         {h:'What I Want To Learn',ul:['How partners approve today, and what they need to see to trust an LLM explanation.','How the other phases version their contracts, and how the engine handles replays.']}]}
+  postgres:{kind:'Storage',t:'Persistent Postgres DB',lead:'Lives in the client\'s storage. It has two tables with separate jobs: one to resume runs, one to keep the record.',
+    sec:[{h:'Tables',kv:[['reviews','One LangGraph thread per review run (the PostgresSaver checkpoints). Used only to resume after a restart or an approval wait.'],['findings','The ledger: append-only finding versions keyed by findingId. Used only for the record: dedup, the parent diff, ignored findings and the trace chain. Never read to resume a run.']]},
+         {h:'Finding Lifecycle',pre:'raw → enriched | unexplained → approved | edited | rejected'},
+         {h:'Recovery',ul:['When a pod fails, Kubernetes spawns a new one that loads the latest checkpoint from the reviews table and continues from there.']}]},
+  trace:{kind:'Traceability',t:'Every Finding Back To Its Exact Input',lead:'The chain is stored in the findings table, the ledger. Each finding\'s rows answer four questions: which bytes, checked by which tool, explained by which model, approved by whom. Downstream items carry only the findingId, which is enough to look the rest up.',
+    sec:[{h:'The Chain (Columns In The Findings Table)',kv:[['Input','packageSha256, codegenRunId, requestId, reviewRunId'],['Analysis','toolName, toolVersion, rulesetVersion, ruleId, fingerprint'],['Identity','findingId = hash(packageSha256, toolVersion, ruleId, fingerprint): the same on every re-run'],['LLM','modelId, promptVersion, gatewayRequestId, attempts, fixVerified'],['Approval','reviewer, decidedAt, version, reason'],['Lineage','priorFindingId links a regenerated package\'s finding to the earlier one']]},
+         {h:'Why Not The Checkpoints',ul:['The reviews table holds working state and can be pruned once a run ends. The ledger is permanent and only ever appended to.']}]}
 };
 
 /* ================= SLIDES ================= */
@@ -365,29 +368,26 @@ const S = [
   {k:'Ingress',t:'Trigger & Spawn',p:'The workflow engine sends a ReviewRequest to the VPC endpoint. The K8s controller mints a reviewRunId, turns the request into a JobSpec and spawns an ephemeral pod to run the reviewer.',f:['engine','controller','pod']},
   {k:'LangGraph Node 1',t:'Verify & Dedup',p:'Schema version, metadata and SHA-256 are checked on arrival. Bad input returns a typed ReviewFailed to the engine and is never retried; a package that was already reviewed exits early through the duplicate branch.',f:['verify','archive','static','engine']},
   {k:'LangGraph Node 2',t:'Static Analysis',p:'The existing tool runs at a pinned version. Because it is deterministic, every finding gets an ID derived from its content and severity comes from the rule, so a re-run after a restart produces identical findings.',f:['static','verify','postgres','filter','pod']},
-  {k:'LangGraph Node 3',t:'Diff vs Parent',p:'Findings are compared with the parent\'s review and tagged new, carried over or resolved. Only new findings go to the model; the rest keep their earlier explanation and still go downstream.',f:['filter','static','llm']},
+  {k:'LangGraph Node 3',t:'Diff vs Parent',p:'Findings are compared with the parent\'s review. Anything an engineer already reviewed and ignored is removed. Carried-over findings reuse their earlier explanation; only new findings go to the model.',f:['filter','static','llm']},
   {k:'LangGraph Node 4',t:'LLM Enrichment',p:'One task per new finding sends its snippet through the central gateway. On a retry the request includes the validator\'s specific error, so the model can correct itself.',f:['llm','gateway','filter','validate']},
   {k:'LangGraph Node 5',t:'Validate & Retry',p:'Each answer is checked: schema, line references, the diff applies, and the analysis tool confirms the fix removes the finding. Invalid answers go back to the model up to three times; after that the finding continues as unexplained. It is never dropped.',f:['validate','llm','generate']},
-  {k:'LangGraph Node 6',t:'Generate Handoff Specs',p:'Docstrings become coverage specs, NASA violations get stress tests, and monitoring hooks are defined. Every spec, hook and watch carries the findingId it came from.',f:['generate','validate','gate']},
-  {k:'LangGraph Node 7',t:'Human Approval Gate',p:'interrupt() checkpoints the state and the pod despawns. The engineer approves, edits or rejects each finding; every decision is appended to the ledger, never overwritten. The decision re-spawns the pod, which resumes from this node.',f:['gate','generate','emit','postgres','pod']},
-  {k:'LangGraph Node 8',t:'Emit Handoff',p:'Approved findings are published through a transactional outbox to the workflow engine, keyed reviewRunId:approvalVersion so nothing is handed on twice. Each hand-off carries provenance and, on regeneration, supersedes.',f:['emit','gate','testing','monitoring']},
-  {k:'Resilience',t:'Persistence & Recovery',p:'Postgres lives in the client\'s storage and records state after every node, including retry counts. If a pod dies, Kubernetes spawns a new one that resumes from the latest checkpoint and produces the same finding IDs.',f:['postgres','pod','gate','llm','static']},
-  {k:'Traceability',t:'Every Finding Back To Its Input',p:'A derived findingId plus recorded tool, model, prompt and approval versions link every test and runtime watch back to the exact bytes that produced it.',f:null,doc:'trace'},
-  {k:'Change Upstream',t:'Format Change & Regeneration',p:'An unknown format is rejected with a typed error. A regenerated package gets a new review run, diffed against the old one, and the hand-off tells testing and monitoring what is new, kept and retired.',f:['engine','verify','filter','emit','testing','monitoring'],doc:'upstream'},
-  {k:'Testing The Chain',t:'Before A Partner Relies On It',p:'Golden packages, a misbehaving fake gateway, pod kills at every node, contract tests, egress canaries and a shadow run on real packages.',f:null,doc:'testplan'},
-  {k:'Closing',t:'Assumptions & Next Steps',p:'What the design assumes about the neighbouring phases, where I would take it next and what I want to learn in the role.',f:null,doc:'assume'}
+  {k:'LangGraph Node 6',t:'Recommend Tests & Monitoring',p:'Each finding becomes a recommended test, plus things to monitor for latency, memory usage, throughput and security. Every item carries the findingId it came from.',f:['generate','validate','gate']},
+  {k:'LangGraph Node 7',t:'Human Approval Gate',p:'interrupt() checkpoints the state and the pod despawns. The engineer approves, edits or rejects each finding; every decision is appended to the findings table, never overwritten. The decision re-spawns the pod, which resumes from this node.',f:['gate','generate','emit','postgres','pod']},
+  {k:'LangGraph Node 8',t:'Emit Handoff',p:'The approved recommendations go to the workflow engine: tests to the testing phase, monitoring for latency, memory, throughput and security to the monitoring phase. Keyed by reviewRunId, so a re-send after a crash is dropped.',f:['emit','gate','testing','monitoring']},
+  {k:'Resilience',t:'Persistence & Recovery',p:'Two tables, two jobs. The reviews table holds LangGraph checkpoints and is used only to resume. The findings table is the ledger and is used only for the record. If a pod dies, the new one resumes from the reviews table and produces the same finding IDs.',f:['postgres','pod','gate','llm','static']},
+  {k:'Traceability',t:'Every Finding Back To Its Input',p:'The chain lives in the findings table. Every recommended test and watch carries a findingId, and the ledger links it back to the exact bytes, tool, model and approval.',f:['postgres','pod','testing','monitoring','emit'],doc:'trace'}
 ];
 
 /* ================= BUILD ================= */
 const zones=document.getElementById('zones'), layer=document.getElementById('layer'), svg=document.getElementById('wires');
-const nodeEls={}, wires=[];
+const nodeEls={}, assumeEls={}, wires=[];
 function zone(cls,x,y,w,h,html,id){
   const z=document.createElement('div');z.className='zone '+cls;
   Object.assign(z.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px'});
   z.innerHTML=`<div class="zone-title" data-id="${id}">${html}</div>`;
   zones.appendChild(z);
 }
-zone('vpc',260,30,2240,1420,'<b>Partner VPC (Isolated Environment)</b>','vpc');
+zone('vpc',260,30,2240,1500,'<b>Partner VPC (Isolated Environment)</b>','vpc');
 zone('pod glass',720,120,1360,1032,'Ephemeral LangGraph K8s Pod<i>LangGraph StateGraph Execution</i>','pod');
 
 
@@ -420,6 +420,9 @@ Object.entries(N).forEach(([id,n])=>{
   el.innerHTML=n.icon?`<div class="row"><div class="ic">${IC[n.icon]}</div><div style="display:flex;flex-direction:column;gap:4px">${txt}</div></div>`:txt;
   el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',n.t);
   layer.appendChild(el);nodeEls[id]=el;
+  if(n.a){const a=document.createElement('div');a.className='assume';a.dataset.id=id;
+    Object.assign(a.style,{left:n.x+'px',top:(n.y+n.h+8)+'px',width:n.w+'px'});
+    a.innerHTML=`<b>ASSUMPTION</b><span>${esc(n.a)}</span>`;layer.appendChild(a);assumeEls[id]=a;}
 });
 
 /* ================= CAMERA ================= */
@@ -434,7 +437,7 @@ function boxFor(sl){
   if(!sl.f)return {x:0,y:10,w:CW,h:CH-10};
   const f=new Set(sl.f);let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
   const add=(x,y,w,h)=>{x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x+w);y2=Math.max(y2,y+h);};
-  sl.f.forEach(id=>{const n=N[id];if(n)add(n.x,n.y,n.w,n.h);});
+  sl.f.forEach(id=>{const n=N[id];if(n)add(n.x,n.y,n.w,n.h+(n.a?64:0));});
   wires.forEach(({e,card})=>{if(f.has(e.from)&&f.has(e.to)){const w=Math.max(card.offsetWidth,204),h=Math.max(card.offsetHeight,120);add(e.c[0]-w/2,e.c[1]-h/2,w,h);}});
   return {x:x1,y:y1,w:x2-x1,h:y2-y1};
 }
@@ -478,6 +481,7 @@ function go(i){
   Object.entries(nodeEls).forEach(([id,el])=>{
     el.classList.toggle('dim',!!f&&!f.has(id));
     el.classList.toggle('focus',!!f&&f.has(id));
+    if(assumeEls[id])assumeEls[id].classList.toggle('dim',!!f&&!f.has(id));
   });
   wires.forEach(({e,g,card})=>{const off=!!f&&!(f.has(e.from)&&f.has(e.to));g.classList.toggle('dim',off);card.classList.toggle('dim',off);});
   [...dots.children].forEach((d,j)=>d.classList.toggle('on',j===cur));
@@ -500,6 +504,7 @@ document.getElementById('next').onclick=()=>go(cur+1);
 const win=document.getElementById('win'), scrim=document.getElementById('scrim'), body=document.getElementById('winBody');
 function renderNode(id){
   const d=D[id];let h=`<div class="kind">${d.kind}</div><h3>${d.t}</h3><p class="lead">${d.lead}</p>`;
+  if(N[id]&&N[id].a)h+=`<h4>Assumption</h4><div class="assume-box">${esc(N[id].a)}</div>`;
   d.sec.forEach(s=>{
     h+=`<h4>${s.h}</h4>`;
     if(s.ul)h+='<ul>'+s.ul.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>';
@@ -531,7 +536,7 @@ function closeWin(instant){
 }
 canvas.addEventListener('click',ev=>{
   if(moved)return;
-  const n=ev.target.closest('.node, .zone-title');
+  const n=ev.target.closest('.node, .zone-title, .assume');
   if(n)return openWin(()=>renderNode(n.dataset.id),n);
   const c=ev.target.closest('.card');
   if(c)openWin(()=>renderEdge(+c.dataset.edge),c);

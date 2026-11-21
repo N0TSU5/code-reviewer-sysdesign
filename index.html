@@ -267,9 +267,9 @@ const N = {
 /* ================= EDGES + PAYLOAD SCHEMAS ================= */
 const E = [
   {from:'engine',to:'controller',d:'M130,302 V655 H298',c:[130,470],name:'ReviewRequest',
-    sch:[{r:[['schemaVersion','semver'],['requestId','uuid'],['codegenRunId','string'],['packageUri','string'],['packageSha256','hex'],['parentSha256','hex | null'],['language','string'],['requirementIds','string[]'],['provenance','{model, promptVer}'],['dataClass','string']]}]},
+    sch:[{r:[['requestId','uuid'],['package256','hex'],['parent256','hex | null'],['uri','string'],['language','string'],['schemaversion','semver']]}]},
   {from:'controller',to:'pod',d:'M500,655 H718',c:[610,655],name:'JobSpec',
-    sch:[{r:[['threadId','reviewRunId (uuid)'],['requestId','uuid'],['packageSha256','hex'],['request','ReviewRequest'],['restartPolicy','OnFailure']]}]},
+    sch:[{r:[['requestId','uuid'],['packageSha256','hex'],['request','ReviewRequest']]}]},
   {from:'verify',to:'engine',d:'M778,250 H232',c:[500,250],name:'ReviewFailed',tag:'error',
     sch:[{r:[['requestId','uuid'],['stage','"verify"'],['reason','HASH|SCHEMA|FIELD'],['detail','string'],['schemaVersionSeen','semver'],['retryable','false']]}]},
   {from:'archive',to:'verify',d:'M780,1435 H750 V300 H778',c:[750,1250],name:'CodePackage',

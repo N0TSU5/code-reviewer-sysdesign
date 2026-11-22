@@ -267,11 +267,11 @@ const N = {
 /* ================= EDGES + PAYLOAD SCHEMAS ================= */
 const E = [
   {from:'engine',to:'controller',d:'M130,302 V655 H298',c:[130,470],name:'ReviewRequest',
-    sch:[{r:[['requestId','uuid'],['package256','hex'],['parent256','hex | null'],['uri','string'],['language','string'],['schemaversion','semver']]}]},
+    sch:[{r:[['packageSha256','hex'],['parentSha256','hex | null'],['uri','string'],['language','string'],['schemaVersion','semver'],['codegenRunId','string']]}]},
   {from:'controller',to:'pod',d:'M500,655 H718',c:[610,655],name:'JobSpec',
-    sch:[{r:[['requestId','uuid'],['packageSha256','hex'],['request','ReviewRequest']]}]},
+    sch:[{r:[['reviewRunId','uuid'],['packageSha256','hex'],['request','ReviewRequest']]}]},
   {from:'verify',to:'engine',d:'M778,250 H232',c:[500,250],name:'ReviewFailed',tag:'error',
-    sch:[{r:[['requestId','uuid'],['stage','"verify"'],['reason','HASH|SCHEMA|FIELD'],['detail','string'],['schemaVersionSeen','semver'],['retryable','false']]}]},
+    sch:[{r:[['reviewRunId','uuid'],['stage','"verify"'],['reason','HASH|SCHEMA|FIELD'],['detail','string'],['schemaVersionSeen','semver'],['retryable','false']]}]},
   {from:'archive',to:'verify',d:'M780,1435 H750 V300 H778',c:[750,1250],name:'CodePackage',
     sch:[{r:[['uri','string'],['archive','tar.gz bytes'],['contentLength','int'],['storageEtag','string']]}]},
   {from:'verify',to:'static',d:'M1020,275 H1278',c:[1150,275],name:'VerifiedPackage',
@@ -359,7 +359,7 @@ const D = {
          {h:'Finding Lifecycle',pre:'raw → enriched | unexplained → approved | edited | rejected'},
          {h:'Recovery',ul:['Two tables, two jobs: reviews is read only to resume, findings only for the record.','When a pod fails, Kubernetes spawns a new one that loads the latest checkpoint from the reviews table and continues from there, producing the same finding IDs.']},
          {h:'Traceability: Every Finding Back To Its Exact Input',ul:['The findings table answers four questions per finding: which bytes, checked by which tool, explained by which model, approved by whom.','Every recommended test and watch handed downstream carries only its findingId, which is enough to look the rest up.']},
-         {h:'The Chain (Columns In The Findings Table)',kv:[['Input','packageSha256, codegenRunId, requestId, reviewRunId'],['Analysis','toolName, toolVersion, rulesetVersion, ruleId, fingerprint'],['Identity','findingId = hash(packageSha256, toolVersion, ruleId, fingerprint): the same on every re-run'],['LLM','modelId, promptVersion, gatewayRequestId, attempts, fixVerified'],['Approval','reviewer, decidedAt, version, reason'],['Lineage','priorFindingId links a regenerated package\'s finding to the earlier one']]},
+         {h:'The Chain (Columns In The Findings Table)',kv:[['Input','packageSha256, codegenRunId, reviewRunId'],['Analysis','toolName, toolVersion, rulesetVersion, ruleId, fingerprint'],['Identity','findingId = hash(packageSha256, toolVersion, ruleId, fingerprint): the same on every re-run'],['LLM','modelId, promptVersion, gatewayRequestId, attempts, fixVerified'],['Approval','reviewer, decidedAt, version, reason'],['Lineage','priorFindingId links a regenerated package\'s finding to the earlier one']]},
          {h:'Why Not The Checkpoints',ul:['The reviews table holds working state and can be pruned once a run ends. The ledger is permanent and only ever appended to.']}]}
 };
 
